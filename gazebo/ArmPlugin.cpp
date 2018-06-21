@@ -10,6 +10,7 @@
 #include "cudaMappedMemory.h"
 #include "cudaPlanar.h"
 
+/*TASK = 1 or 2*/
 #define TASK 2
 #define PI 3.141592653589793238462643383279502884197169f
 
@@ -296,7 +297,7 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 
         bool collisionCheck = (strcmp(contacts->contact(i).collision1().c_str(), COLLISION_ITEM) == 0) ? true : false;
         bool collisionCheck_G = (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_POINT) == 0) ? true : false;
-        bool collisionCheck_A = (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_ARM) == 0) ? true : false;
+//        bool collisionCheck_A = (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_ARM) == 0) ? true : false;
 
 #if TASK == 1
                 if (collisionCheck)
@@ -314,7 +315,7 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
                 newReward  = true;
                 endEpisode = true;
                 return;
-            }
+            }//Finally not used
 //             else if (collisionCheck_A) {
 //                rewardHistory = REWARD_LOSS ;
 //                newReward  = true;
@@ -647,6 +648,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
                     if(true){printf("GROUND CONTACT, EOE\n");}
                     /* Here the aim is to reduce the penalty while the arm is getting closer to the target
                     */
+//                    rewardHistory = REWARD_LOSS * 10 * (gripBBox.min.x - propBBox.min.x); (not work)
                     rewardHistory = REWARD_LOSS * 10;
                     newReward     = true;
                     endEpisode    = true;
@@ -675,22 +677,27 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
                         avgGoalDelta  = average_delta;
 
                         if (avgGoalDelta > 0.001f){
+                            // positive reward when it is getting closer
                             if (distGoal > 0.0){
+
 //                             rewardHistory = REWARD_WIN / (1.0 + (distGoal + (gripBBox.min.x - propBBox.min.x)));
+//                             rewardHistory = REWARD_WIN * 10.0f * (1.5f - sigmoid(10 * avgGoalDelta));
+
                              rewardHistory = REWARD_WIN;
                             }else if (distGoal < 0.001 || distGoal == 0.0){
+                                // get a bonus when it is very close
                                 rewardHistory = REWARD_WIN * 20 ;
-//                                endEpisode = true;
                             }
                         }
                         else if (avgGoalDelta < 0.0f){
+                            // more punishment the further away from the object
                             rewardHistory = REWARD_LOSS * distGoal;
                         }else{
+                            // accumulative punish if it is not moving
                             rewardHistory += REWARD_LOSS;
                         }
 
                         newReward = true;
-//                        if(False){printf("avgGoalDelta: %3.2f, penalty:%3.2f, reward:%3.2f\n", avgGoalDelta, (distGoal + (gripBBox.min.x - propBBox.min.x)), rewardHistory);}
                     }
                     lastGoalDistance = distGoal;
                 }
@@ -699,7 +706,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
         // issue rewards and train DQN
         if( newReward && agent != NULL )
         {
-            if(true){printf("ArmPlugin - issuing reward %f, EOE=%s  %s\n", rewardHistory, endEpisode ? "true" : "false", (rewardHistory > 0.1f) ? "POS+" :(rewardHistory > 0.0f) ? "POS" : (rewardHistory < 0.0f) ? "    NEG" : "       ZERO");}
+            if(DEBUG){printf("ArmPlugin - issuing reward %f, EOE=%s  %s\n", rewardHistory, endEpisode ? "true" : "false", (rewardHistory > 0.1f) ? "POS+" :(rewardHistory > 0.0f) ? "POS" : (rewardHistory < 0.0f) ? "    NEG" : "       ZERO");}
             agent->NextReward(rewardHistory, endEpisode);
 
             // reset reward indicator
